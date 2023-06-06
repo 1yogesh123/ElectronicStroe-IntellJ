@@ -1,4 +1,4 @@
-package com.rinku.electronic.store.ElectronicStore;
+package com.yog.electronic.store;
 
 import org.junit.jupiter.api.Test;
 import org.springframework.boot.test.context.SpringBootTest;
