@@ -1,0 +1,156 @@
+package com.yog.electronicstore.Controller;
+import com.yog.electronicstore.Dtos.CategoryDto;
+import com.yog.electronicstore.Service.CategoryService;
+import com.yog.electronicstore.Service.FileService;
+import org.slf4j.Logger;
+import org.slf4j.LoggerFactory;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.beans.factory.annotation.Value;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.util.StreamUtils;
+import org.springframework.web.bind.annotation.*;
+import org.springframework.web.multipart.MultipartFile;
+import javax.servlet.http.HttpServletResponse;
+import javax.validation.Valid;
+import java.io.IOException;
+import java.io.InputStream;
+
+@RestController
+@RequestMapping("/categories")
+public class CategoryController {
+
+    private Logger logger= LoggerFactory.getLogger(CategoryController.class);
+    @Autowired
+    private CategoryService categoryService;
+    @Autowired
+    private FileService fileService;
+    @Value("${user.profile.image.path}")
+    private String imageUploadPath;
+
+    /**
+     * @author Yogesh Shelar
+     * @param cate
+     * @return
+     * @ApiNote This API is used to create user
+     */
+    @PostMapping
+    public ResponseEntity<CategoryDto> createcategory(@Valid @RequestBody CategoryDto cate) {
+        logger.info(" Initiated Request for creating category");
+        CategoryDto dto = this.categoryService.create(cate);
+        logger.info(" completed Request for creating category");
+        return new ResponseEntity<CategoryDto>(dto, HttpStatus.CREATED);
+    }
+
+    /**
+     * @author Rinku Patil
+     * @param pageNumber
+     * @param pageSize
+     * @param sortBy
+     * @param sortDir
+     * @return
+     */
+    @GetMapping
+    public ResponseEntity<PageableResponse<CategoryDto>> getAllUsers(
+            @RequestParam(value = "pageNumber", defaultValue = "0", required = false) int pageNumber,
+            @RequestParam(value = "PageSize", defaultValue = "10", required = false) int pageSize,
+            @RequestParam(value = "sortBy", defaultValue = "name", required = false) String sortBy,
+            @RequestParam(value = "sortDir", defaultValue = "asc", required = false) String sortDir
+    ) {
+        logger.info("Request  for service layer to get All user ");
+        return new ResponseEntity<>(categoryService.getAll(pageNumber, pageSize, sortBy, sortDir), HttpStatus.OK);
+    }
+
+    /**
+     * @author Yogesh Shelar
+     * @param cate
+     * @param categoryId
+     * @return
+     */
+
+    @PutMapping("/{categoryId}")
+    public ResponseEntity<CategoryDto> updatecategory(@Valid @RequestBody CategoryDto cate,
+                                                      @PathVariable String categoryId) {
+        logger.info(" Initiated Request for updating category with categoryId :{}", categoryId);
+        CategoryDto dto = this.categoryService.updatecategory(cate, categoryId);
+        logger.info(" completed Request for updating category with categoryId :{}", categoryId);
+        return new ResponseEntity<CategoryDto>(dto, HttpStatus.OK);
+
+    }
+
+    /**
+     * @author Yogesh Shelar
+     * @param categoryId
+     * @return
+     */
+    @GetMapping("/categories/{categoryId}")
+    public ResponseEntity<CategoryDto> getcategory(@PathVariable String  categoryId) {
+        logger.info(" Initiated Request for getting category with categoryId :{}", categoryId);
+        CategoryDto dto = this.categoryService.getcategory(categoryId);
+        logger.info(" completed Request for getting category with categoryId :{}", categoryId);
+        return new ResponseEntity<CategoryDto>(dto, HttpStatus.OK);
+    }
+
+    /**
+     * @author Rinku Patil
+     * @param categoryId
+     * @return
+     */
+    @DeleteMapping("categories/{categoryId}")
+    public ResponseEntity<ApiResponseMessage> deletecategory(@PathVariable String  categoryId) {
+        logger.info(" Initiated Request for deleting category with categoryId :{}", categoryId);
+        this.categoryService.deletecategory(categoryId);
+        ApiResponseMessage message = ApiResponseMessage
+                .builder()
+                .message("User is deleted Sucessfully!!  ")
+                .success(true).
+                status(HttpStatus.OK)
+                .build();
+        logger.info(" completing Request for deleting category with categoryId :{}", categoryId);
+        return new ResponseEntity<ApiResponseMessage>(message, HttpStatus.OK);
+    }
+
+    /**
+     * @author Yogesh Shelar
+     * @param image
+     * @param categoryId
+     * @return
+     * @throws IOException
+     */
+    @PostMapping("/image/{categoryId}")
+    public ResponseEntity<ImageResponse> uploadUserImage(@RequestParam("catImage") MultipartFile image, @PathVariable String categoryId) throws IOException {
+        {
+            logger.info("Request Starting for fileservice layer to upload image with categoryId {}", categoryId);
+            String imageName = fileService.uploadFile(image, imageUploadPath);
+            CategoryDto category = categoryService.getcategory(categoryId);
+            category.setCoverImage(imageName);
+            CategoryDto categoryDto = categoryService.updatecategory(category, categoryId);
+            ImageResponse imageResponse = ImageResponse.builder().imageName(imageName).message("File Uploaded").success(true).status(HttpStatus.CREATED).build();
+            logger.info("Request Completed for fileservice layer to upload image with categoryId: {}", categoryId);
+            return new ResponseEntity<>(imageResponse, HttpStatus.CREATED);
+        }
+    }
+
+    /**
+     * @author  Yogesh Shelar
+     * @param categoryId
+     * @param response
+     * @throws IOException
+     */
+    //Serve User Image
+    @GetMapping("/image/{categoryId}")
+    public void serveUserImage(@PathVariable String categoryId, HttpServletResponse response) throws IOException {
+        CategoryDto category = categoryService.getcategory(categoryId);
+        logger.info("User Image Name: {}",category.getCoverImage());
+        InputStream resource = fileService.getResource(imageUploadPath,category.getCoverImage());
+        response.setContentType(MediaType.IMAGE_JPEG_VALUE);
+        StreamUtils.copy(resource,response.getOutputStream());
+
+    }
+
+
+
+}
+
+
